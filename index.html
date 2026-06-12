@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chris Roberts · Director, Strategic Accounts NAMER · Mentimeter</title>
+<style>
+:root{
+  --bg:#080E1B; --surface:#111E30; --card:#192840;
+  --teal:#00C4DC; --pink:#FF3E82; --amber:#E07B39; --green:#22C55E;
+  --white:#FFFFFF; --mid:#8AAABF; --low:#2E4A62;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden;background:var(--bg);
+  font-family:Inter,Calibri,'Segoe UI',system-ui,-apple-system,sans-serif;
+  color:var(--white);-webkit-font-smoothing:antialiased}
+
+/* ---------- chrome: progress, accent bar, counter, chevrons ---------- */
+#progress{position:fixed;top:0;left:0;height:3px;width:0;background:var(--teal);
+  z-index:60;transition:width .45s ease-out;border-radius:0 2px 2px 0}
+#accentBar{position:fixed;left:0;top:0;width:5px;height:100vh;background:var(--teal);
+  z-index:55;transition:background .45s ease}
+#hudCounter{position:fixed;left:26px;bottom:20px;z-index:50;font-size:12px;
+  color:rgba(138,170,191,.55);letter-spacing:.12em;font-variant-numeric:tabular-nums}
+#hudNav{position:fixed;right:24px;bottom:18px;z-index:50;display:flex;gap:10px;
+  opacity:0;transition:opacity .35s ease}
+#hudNav.visible{opacity:1}
+#hudNav button{width:42px;height:42px;border-radius:50%;cursor:pointer;
+  background:rgba(17,30,48,.85);border:1px solid rgba(255,255,255,.12);
+  color:var(--mid);font-size:20px;line-height:1;display:flex;align-items:center;
+  justify-content:center;transition:all .2s ease;padding-bottom:3px}
+#hudNav button:hover{color:var(--white);border-color:var(--teal);transform:translateY(-2px)}
+#hudNav button:disabled{opacity:.25;cursor:default;transform:none}
+
+/* ---------- stage (fixed 16:9 design canvas, scaled to viewport) ---------- */
+#viewport{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+#stage{width:1600px;height:900px;position:relative;flex:none}
+
+/* ---------- slide base + transitions: gravity, not software ---------- */
+.slide{position:absolute;inset:0;padding:46px 60px 50px 72px;
+  display:flex;flex-direction:column;overflow:hidden;
+  opacity:0;transform:translateY(20px);pointer-events:none;
+  transition:opacity .4s ease-out,transform .4s ease-out}
+.slide.active{opacity:1;transform:translateY(0);pointer-events:auto}
+.noanim,.noanim *{transition:none !important;animation:none !important}
+
+/* decorative blurred orbs */
+.orb{position:absolute;border-radius:50%;filter:blur(95px);pointer-events:none;z-index:0}
+.orb.t{background:rgba(0,196,220,.32)}
+.orb.p{background:rgba(255,62,130,.30)}
+.slide>:not(.orb){position:relative;z-index:1}
+
+/* ---------- entry animation primitives ---------- */
+.a{opacity:0;transform:translateY(10px);
+  transition:opacity .35s ease-out,transform .35s ease-out}
+.slide.in .a{opacity:1;transform:translateY(0)}
+
+/* draw left-to-right (divider, timeline) */
+.draw{transform:scaleX(0);transform-origin:left center;transition:transform .8s ease-out}
+.slide.in .draw{transform:scaleX(1)}
+/* draw top-down (org connector) */
+.drawV{transform:scaleY(0);transform-origin:top center;transition:transform .6s ease-out}
+.slide.in .drawV{transform:scaleY(1)}
+
+/* ---------- typography ---------- */
+.kicker{font-size:11px;font-weight:700;letter-spacing:.2em;text-transform:uppercase}
+.c-teal{color:var(--teal)} .c-pink{color:var(--pink)}
+.c-amber{color:var(--amber)} .c-green{color:var(--green)}
+.c-mid{color:var(--mid)} .c-low{color:var(--low)}
+.body{font-size:15px;color:var(--mid);line-height:1.5}
+.shead{margin-bottom:20px}
+.shead .rule{height:1px;background:rgba(255,255,255,.08);margin-top:12px}
+
+/* ---------- cards ---------- */
+.card{background:var(--card);border:1px solid rgba(255,255,255,.09);border-radius:12px;
+  box-shadow:0 10px 28px rgba(0,0,0,.35);
+  transition:transform .2s ease,box-shadow .2s ease,opacity .35s ease-out}
+.card:hover{transform:translateY(-3px);box-shadow:0 16px 36px rgba(0,0,0,.5)}
+.a.card,.a .card{transition:transform .35s ease-out,opacity .35s ease-out,box-shadow .2s ease}
+/* after entrance settles, restore snappy 200ms hover physics */
+.slide.settled .a{transition:transform .2s ease,box-shadow .2s ease,opacity .2s ease;transition-delay:0s !important}
+/* hover lift must beat the entry transform rule's specificity */
+.slide.in .card:hover,.slide.in .tier:hover,.slide.in .lever:hover{transform:translateY(-3px)}
+.surface{background:var(--surface)}
+
+/* ---------- pulse (Menti boxes) ---------- */
+@keyframes mentiPulse{
+  0%,100%{border-color:rgba(0,196,220,.6);box-shadow:0 0 22px rgba(0,196,220,.10)}
+  50%{border-color:rgba(0,196,220,1);box-shadow:0 0 30px rgba(0,196,220,.22)}
+}
+.pulse{animation:mentiPulse 2.5s ease-in-out infinite}
+
+/* feeds connector — pulses once on entry */
+@keyframes feedOnce{
+  0%{transform:scale(1);opacity:.4}
+  55%{transform:scale(1.18);opacity:1}
+  100%{transform:scale(1);opacity:1}
+}
+.slide.in .feeds{animation:feedOnce .9s ease-out .85s both}
+.feeds{opacity:.4}
+
+/* bars */
+.bar{height:7px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;border-radius:4px}
+
+/* numbers */
+.num{font-variant-numeric:tabular-nums}
+
+/* ROI hero landing */
+@keyframes roiLand{
+  0%{transform:scale(1)}
+  35%{transform:scale(1.045)}
+  100%{transform:scale(1)}
+}
+.roi-hero.landed .roi-big{animation:roiLand .7s cubic-bezier(.22,1,.36,1) both}
+.roi-hero.landed{box-shadow:0 0 40px rgba(34,197,94,.28),0 10px 28px rgba(0,0,0,.35)}
+.roi-hero{transition:box-shadow 1.2s ease}
+
+/* ---------- shared layout helpers ---------- */
+.cols3{flex:1;display:grid;grid-template-columns:30.5% 1fr 31.5%;gap:22px;min-height:0}
+.colhead{font-size:11px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;margin-bottom:10px}
+.intro{font-size:12.5px;color:var(--mid);line-height:1.45;margin-bottom:12px}
+ul.b{list-style:none}
+ul.b li{font-size:11.5px;color:var(--mid);line-height:1.42;padding-left:14px;position:relative;margin-bottom:3px}
+ul.b li::before{content:'▸';position:absolute;left:0;font-size:10px}
+ul.b.bt li::before{color:var(--teal)} ul.b.bp li::before{color:var(--pink)}
+ul.b.ba li::before{color:var(--amber)} ul.b.bg li::before{color:var(--green)}
+
+/* =================== SLIDE 1 — TITLE =================== */
+.s1-grid{flex:1;display:grid;grid-template-columns:60% 1fr;gap:48px;align-items:center}
+.s1-name{color:var(--teal);font-size:11px;font-weight:700;letter-spacing:.34em;margin-bottom:22px}
+.s1-title{font-size:72px;font-weight:800;line-height:1.04;letter-spacing:-.015em}
+.s1-pill{display:inline-block;margin-top:22px;padding:8px 18px;border-radius:999px;
+  background:rgba(255,62,130,.12);border:1px solid rgba(255,62,130,.45);
+  color:var(--pink);font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase}
+.s1-divider{height:2px;background:var(--teal);width:340px;margin:26px 0 24px;border-radius:1px}
+.s1-cards{display:flex;flex-direction:column;gap:10px;max-width:560px}
+.s1-card{display:flex;align-items:center;gap:16px;padding:13px 18px}
+.s1-card .n{font-size:13px;font-weight:800;color:var(--low);letter-spacing:.08em}
+.s1-card .t{font-size:15px;font-weight:700;color:var(--white);flex:1}
+.s1-card .arr{color:var(--teal);font-size:14px}
+.s1-card .o{font-size:13px;font-weight:700;letter-spacing:.04em}
+.s1-context{margin-top:22px;font-style:italic;font-size:13px;color:var(--mid);line-height:1.5;max-width:580px}
+.s1-foot{margin-top:12px;font-size:10.5px;color:var(--low)}
+/* Menti live box */
+.menti-box{border:2px solid var(--teal);border-radius:14px;overflow:hidden;
+  background:var(--surface);box-shadow:0 14px 40px rgba(0,0,0,.45)}
+.menti-head{background:var(--teal);color:#06222a;text-align:center;
+  font-size:12px;font-weight:800;letter-spacing:.28em;padding:11px 0;text-transform:uppercase}
+.menti-body{padding:26px 30px 24px;text-align:center}
+.menti-pre{font-size:13px;color:var(--mid);font-style:italic;margin-bottom:10px}
+.menti-q{font-size:19px;font-weight:700;line-height:1.4;color:var(--white);margin-bottom:22px}
+.menti-qr{width:200px;height:200px;background:var(--white);border-radius:10px;margin:0 auto 18px;
+  display:flex;align-items:center;justify-content:center;padding:16px}
+.menti-qr span{border:2px dashed #9aa7b5;border-radius:6px;width:100%;height:100%;
+  display:flex;align-items:center;justify-content:center;color:#52617a;
+  font-size:12px;font-weight:700;letter-spacing:.06em;text-align:center;line-height:1.5;padding:10px}
+.menti-foot{font-size:11px;color:var(--mid);letter-spacing:.08em}
+
+/* =================== SLIDE 2 — ACCOUNT PLAN =================== */
+.acct{padding:16px 18px 12px}
+.acct-name{font-size:17px;font-weight:800}
+.acct-sub{font-size:10.5px;color:var(--low);margin:2px 0 10px;letter-spacing:.04em}
+table.stats{width:100%;border-collapse:collapse;font-size:11.8px}
+table.stats td{padding:5px 9px;line-height:1.3}
+table.stats tr:nth-child(odd) td{background:rgba(255,255,255,.035)}
+table.stats td:first-child{color:var(--mid);width:42%;border-radius:4px 0 0 4px}
+table.stats td:last-child{color:var(--white);font-weight:600;border-radius:0 4px 4px 0}
+.stk-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.stk{padding:9px 11px;border-radius:9px;background:var(--card);
+  border:1px solid rgba(255,255,255,.08);border-left-width:3px}
+.stk .who{font-size:12.5px;font-weight:700}
+.stk .role{font-size:9px;font-weight:700;letter-spacing:.16em;color:var(--mid);margin-top:2px}
+/* roadmap */
+.tl-track{display:flex;gap:4px;height:6px;margin:2px 0 16px}
+.tl-track i{flex:1;border-radius:3px;transform:scaleX(0);transform-origin:left center}
+.slide.in .tl-track i{transform:scaleX(1);transition:transform .8s ease-out}
+.phase{margin-bottom:13px}
+.phase .ph-label{font-size:10.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+  margin-bottom:5px;display:flex;align-items:center;gap:7px}
+.phase .ph-label::before{content:'';width:8px;height:8px;border-radius:50%;background:currentColor;flex:none}
+/* NRR column */
+.nrr-hero{padding:14px 16px;text-align:center;border-color:rgba(0,196,220,.35)}
+.nrr-row{display:flex;align-items:center;justify-content:center;gap:14px}
+.nrr-cell .v{font-size:27px;font-weight:800;letter-spacing:-.01em}
+.nrr-cell .l{font-size:9.5px;color:var(--mid);letter-spacing:.1em;text-transform:uppercase;margin-top:3px}
+.nrr-arrow{color:var(--teal);font-size:22px;font-weight:300}
+.exp-row{display:flex;align-items:center;gap:10px;padding:6px 0}
+.exp-row .lab{font-size:11.5px;color:var(--mid);width:46%}
+.exp-row .bar{flex:1}
+.exp-row .val{font-size:12.5px;font-weight:700;width:76px;text-align:right}
+.exp-total{background:rgba(0,196,220,.08);border:1px solid rgba(0,196,220,.3);
+  border-radius:8px;padding:7px 10px;margin-top:4px}
+.exp-total .lab{color:var(--white);font-weight:700}
+.kpi{display:flex;justify-content:space-between;font-size:11.8px;padding:5px 2px;
+  border-bottom:1px solid rgba(255,255,255,.05)}
+.kpi .k{color:var(--mid)} .kpi .v{font-weight:700}
+.kpi .v em{font-style:normal;color:var(--low)}
+.kpi .v b{color:var(--teal)}
+/* risk strip */
+.riskstrip{margin-top:18px;border-left:4px solid var(--pink);border-radius:0 12px 12px 0;
+  background:var(--surface);padding:12px 18px 13px;border-top:1px solid rgba(255,255,255,.06);
+  border-right:1px solid rgba(255,255,255,.06);border-bottom:1px solid rgba(255,255,255,.06)}
+.risk-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px 28px;margin-top:8px}
+.risk{font-size:11.8px;line-height:1.4}
+.risk b{color:var(--white)} .risk .arr{color:var(--pink);margin:0 6px}
+.risk span{color:var(--mid)}
+
+/* =================== SLIDE 3 — VALUE CREATION =================== */
+.tier{padding:13px 16px;border-radius:12px;background:var(--card);
+  box-shadow:0 10px 28px rgba(0,0,0,.35);transition:transform .2s ease,box-shadow .2s ease}
+.tier:hover{transform:translateY(-3px)}
+.tier .tt{font-size:12.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase}
+.tier .ts{font-size:11px;font-style:italic;color:var(--mid);margin:3px 0 8px}
+.tier1{border:1px solid rgba(0,196,220,.5)}
+.tier2{border:1px solid rgba(255,62,130,.5)}
+.feeds{text-align:center;color:var(--pink);font-size:12px;font-weight:700;
+  letter-spacing:.18em;padding:9px 0;text-transform:uppercase}
+.fineprint{font-size:10.8px;font-style:italic;color:var(--low);line-height:1.45;margin-top:12px}
+.stat3{display:flex;flex-direction:column;gap:8px;margin-bottom:6px}
+.statcard{display:flex;align-items:center;gap:14px;padding:9px 14px;
+  border:1px solid rgba(255,62,130,.4);border-radius:10px;background:var(--card)}
+.statcard .big{font-size:27px;font-weight:800;color:var(--pink);min-width:96px;letter-spacing:-.01em}
+.statcard .desc{font-size:11px;color:var(--mid);line-height:1.35}
+.srcline{font-size:9.5px;font-style:italic;color:var(--low);margin:6px 2px 12px}
+.ebr-step{display:flex;gap:11px;margin-bottom:9px}
+.ebr-step .nc{width:22px;height:22px;border-radius:50%;background:rgba(255,62,130,.15);
+  border:1px solid rgba(255,62,130,.5);color:var(--pink);font-size:11px;font-weight:800;
+  display:flex;align-items:center;justify-content:center;flex:none;margin-top:1px}
+.ebr-step .tt{font-size:12.5px;font-weight:700;color:var(--white)}
+.ebr-step .dd{font-size:11px;color:var(--mid);line-height:1.35;margin-top:1px}
+.rb-step{display:flex;align-items:baseline;gap:12px;background:var(--card);
+  border:1px solid rgba(255,255,255,.08);border-radius:9px;padding:8px 12px;margin-bottom:7px;
+  border-left-width:3px}
+.rb-step .tt{font-size:11px;font-weight:800;letter-spacing:.12em;min-width:128px;color:var(--white)}
+.rb-step .dd{font-size:11px;color:var(--mid);line-height:1.35}
+.menti-bar{border:2px solid var(--teal);border-radius:10px;background:rgba(0,196,220,.06);
+  padding:10px 14px;font-size:12px;line-height:1.45;color:var(--white);
+  display:flex;align-items:center;gap:14px}
+.menti-bar b{color:var(--teal);letter-spacing:.1em}
+.menti-bar .mtext{flex:1}
+.menti-bar .mtype{font-size:9.5px;color:var(--mid);letter-spacing:.08em;margin-top:4px}
+.mini-qr{width:76px;height:76px;background:var(--white);border-radius:8px;flex:none;
+  display:flex;align-items:center;justify-content:center;text-align:center;padding:5px}
+.mini-qr span{border:1.5px dashed #9aa7b5;border-radius:5px;width:100%;height:100%;
+  display:flex;align-items:center;justify-content:center;color:#52617a;
+  font-size:8.5px;font-weight:700;letter-spacing:.04em;line-height:1.35;padding:4px}
+
+/* =================== SLIDE 4 — TEAM =================== */
+.org-dir{border:1px solid rgba(224,123,57,.6);border-radius:11px;background:var(--card);
+  text-align:center;padding:11px 14px}
+.org-dir .tt{font-size:12px;font-weight:800;letter-spacing:.12em;color:var(--amber)}
+.org-dir .nm{font-size:12px;color:var(--mid);margin-top:2px}
+.org-line{width:2px;height:22px;background:var(--amber);margin:0 auto;opacity:.7}
+.org-card{background:var(--card);border:1px solid rgba(255,255,255,.08);border-left-width:3px;
+  border-radius:9px;padding:9px 13px;margin-bottom:8px}
+.org-card .tt{font-size:11.5px;font-weight:800;letter-spacing:.1em}
+.org-card .ct{font-size:10.5px;color:var(--low);font-weight:600;margin:1px 0 3px}
+.org-card .dd{font-size:11px;color:var(--mid);line-height:1.35}
+.cad{background:var(--card);border:1px solid rgba(255,255,255,.08);border-radius:10px;
+  padding:9px 13px;margin-bottom:9px}
+.cad .tt{font-size:10.5px;font-weight:800;letter-spacing:.18em;margin-bottom:5px}
+.sbi{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:6px}
+.sbi td{padding:5px 8px;line-height:1.35;border-bottom:1px solid rgba(255,255,255,.05)}
+.sbi td:first-child{font-weight:800;letter-spacing:.1em;color:var(--amber);width:86px;font-size:10px}
+.sbi td:last-child{color:var(--mid)}
+.dev li{margin-bottom:4px}
+.win{display:flex;gap:9px;font-size:11.5px;margin-bottom:5px;line-height:1.35}
+.win .ic{flex:none}
+.win span{color:var(--mid)} .win b{color:var(--white)}
+
+/* =================== SLIDE 5 — ROI =================== */
+.s5-badge{position:absolute;top:46px;right:60px;padding:6px 16px;border-radius:999px;
+  border:1px solid rgba(224,123,57,.55);color:var(--amber);font-size:10.5px;
+  font-weight:700;letter-spacing:.18em;text-transform:uppercase;background:rgba(224,123,57,.08)}
+.s5-grid{flex:1;display:grid;grid-template-columns:53% 1fr;gap:26px;min-height:0}
+.lever{display:flex;gap:13px;background:var(--card);border:1px solid rgba(255,255,255,.08);
+  border-radius:11px;padding:12px 15px;margin-bottom:10px;
+  box-shadow:0 10px 28px rgba(0,0,0,.3);transition:transform .2s ease}
+.lever:hover{transform:translateY(-3px)}
+.lever .nc{width:26px;height:26px;border-radius:50%;font-size:12px;font-weight:800;flex:none;
+  display:flex;align-items:center;justify-content:center;margin-top:1px;
+  border:1.5px solid currentColor}
+.lever .tt{font-size:12px;font-weight:800;letter-spacing:.12em}
+.lever .fm{font-size:12px;color:var(--white);margin:4px 0 3px;line-height:1.35}
+.lever .bm{font-size:10.8px;color:var(--mid);font-style:italic;line-height:1.35}
+.inputs{font-size:11.3px;color:var(--mid);background:var(--surface);
+  border:1px solid rgba(255,255,255,.07);border-radius:9px;padding:8px 13px;margin-bottom:11px;line-height:1.4}
+.inputs b{color:var(--white)}
+.calc{margin-bottom:8px}
+.calc .row1{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px}
+.calc .lab{font-size:11.5px;color:var(--white);font-weight:600}
+.calc .frm{font-size:10px;color:var(--low);margin-left:7px}
+.calc .val{font-size:14.5px;font-weight:800}
+.gross{display:flex;justify-content:space-between;align-items:baseline;
+  border-top:1px solid rgba(255,255,255,.14);margin-top:4px;padding:8px 0 10px}
+.gross .lab{font-size:11.5px;font-weight:800;letter-spacing:.12em}
+.gross .val{font-size:19px;font-weight:800}
+.roi-hero{border:2px solid var(--green);border-radius:13px;background:var(--card);
+  text-align:center;padding:13px 16px 14px}
+.roi-kick{font-size:10.5px;font-weight:800;letter-spacing:.16em;color:var(--green);text-transform:uppercase}
+.roi-big{font-size:72px;font-weight:800;color:var(--green);line-height:1.08;letter-spacing:-.02em;display:inline-block}
+.roi-floor{font-size:11px;color:var(--mid)}
+.agent-strip{margin-top:16px;border:1px solid rgba(0,196,220,.45);border-radius:11px;
+  background:rgba(0,196,220,.05);padding:11px 18px;display:flex;align-items:center;gap:18px}
+.agent-strip .tag{font-size:11px;font-weight:800;letter-spacing:.18em;color:var(--teal);flex:none}
+.agent-flow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:11.5px}
+.agent-flow b{color:var(--white)} .agent-flow span{color:var(--mid)}
+.agent-flow .fa{color:var(--teal);font-weight:700}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+<div id="accentBar"></div>
+<div id="viewport"><div id="stage">
+
+<!-- ================= SLIDE 1 — TITLE ================= -->
+<section class="slide" data-accent="teal">
+  <div class="orb t" style="width:560px;height:560px;left:-160px;top:-180px;opacity:.16"></div>
+  <div class="orb p" style="width:480px;height:480px;right:-120px;bottom:-160px;opacity:.14"></div>
+  <div class="s1-grid">
+    <div>
+      <div class="s1-name a">CHRIS ROBERTS</div>
+      <h1 class="s1-title a">Director,<br>Strategic Accounts</h1>
+      <div class="a"><span class="s1-pill">NAMER&nbsp;&nbsp;·&nbsp;&nbsp;Business Case Submission&nbsp;&nbsp;·&nbsp;&nbsp;2026</span></div>
+      <div class="s1-divider draw"></div>
+      <div class="s1-cards">
+        <div class="card s1-card a"><span class="n">01</span><span class="t">Account Plan</span><span class="arr">→</span><span class="o c-teal">125% NRR</span></div>
+        <div class="card s1-card a"><span class="n">02</span><span class="t">Value Creation</span><span class="arr">→</span><span class="o c-pink">Champions</span></div>
+        <div class="card s1-card a"><span class="n">03</span><span class="t">Team Architecture</span><span class="arr">→</span><span class="o c-amber">Scale</span></div>
+      </div>
+      <p class="s1-context a">90-min virtual interview · Richard Matti, VP Global Strategic Accounts · Tobias Johannson, Head of CS</p>
+      <p class="s1-foot a">All account data is hypothetical. Benchmarks: Gallup 2024, McKinsey, SHRM.</p>
+    </div>
+    <div class="a">
+      <div class="menti-box pulse">
+        <div class="menti-head">✦&nbsp;&nbsp;Menti Live&nbsp;&nbsp;✦</div>
+        <div class="menti-body">
+          <p class="menti-pre">Before we begin...</p>
+          <p class="menti-q">In one word — what does your best customer value most about Mentimeter?</p>
+          <div class="menti-qr"><span>[ INSERT MENTI<br>QR CODE ]</span></div>
+          <p class="menti-foot">Word Cloud · Menti PowerPoint Add-in</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= SLIDE 2 — STRATEGIC ACCOUNT PLAN ================= -->
+<section class="slide" data-accent="teal">
+  <div class="orb t" style="width:520px;height:520px;right:-160px;top:-180px;opacity:.13"></div>
+  <div class="orb p" style="width:440px;height:440px;left:-140px;bottom:-150px;opacity:.11"></div>
+  <header class="shead a">
+    <div class="kicker c-teal">01&nbsp;&nbsp;·&nbsp;&nbsp;Strategic Account Plan&nbsp;&nbsp;·&nbsp;&nbsp;125% NRR in 12 Months</div>
+    <div class="rule"></div>
+  </header>
+  <div class="cols3">
+
+    <div>
+      <div class="card acct a">
+        <div class="acct-name">NorthStar Financial Group</div>
+        <div class="acct-sub">FICTIONAL ENTERPRISE ACCOUNT</div>
+        <table class="stats">
+          <tr><td>HQ</td><td>New York, NY</td></tr>
+          <tr><td>Employees</td><td>8,000</td></tr>
+          <tr><td>Current ACV</td><td>$225,000</td></tr>
+          <tr><td>Seats</td><td>150 presenter licences</td></tr>
+          <tr><td>Contract</td><td>1-yr auto-renew · Year 3</td></tr>
+          <tr><td>Utilization</td><td>73% seat usage</td></tr>
+          <tr><td>Primary Use</td><td>L&amp;D + All-Hands</td></tr>
+          <tr><td>Renewal</td><td>9 months out</td></tr>
+        </table>
+      </div>
+      <div class="kicker c-teal a" style="margin:16px 0 9px">Key Stakeholders</div>
+      <div class="stk-grid a">
+        <div class="stk" style="border-left-color:var(--pink)"><div class="who">CHRO</div><div class="role">EXEC SPONSOR</div></div>
+        <div class="stk" style="border-left-color:var(--amber)"><div class="who">CFO</div><div class="role">ECONOMIC BUYER</div></div>
+        <div class="stk" style="border-left-color:var(--teal)"><div class="who">VP L&amp;D</div><div class="role">CHAMPION</div></div>
+        <div class="stk" style="border-left-color:var(--low)"><div class="who">L&amp;D · HR BPs</div><div class="role">USERS</div></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="colhead c-teal a">12-Month Roadmap</div>
+      <div class="tl-track">
+        <i style="background:var(--teal);transition-delay:.25s"></i>
+        <i style="background:var(--pink);transition-delay:.55s"></i>
+        <i style="background:var(--amber);transition-delay:.85s"></i>
+        <i style="background:var(--green);transition-delay:1.15s"></i>
+      </div>
+      <div class="phase a">
+        <div class="ph-label c-teal">Phase 1 · M1–2 · Executive Alignment</div>
+        <ul class="b bt">
+          <li>Intro to CHRO — align to their strategic priorities</li>
+          <li>Set quarterly EBR cadence (exec-first, product-second)</li>
+          <li>Identify economic buyer (CFO) and budget cycle</li>
+        </ul>
+      </div>
+      <div class="phase a">
+        <div class="ph-label c-pink">Phase 2 · M2–4 · Discovery &amp; Baseline</div>
+        <ul class="b bp">
+          <li>CSM deep-dive: usage data, seat activity, session patterns</li>
+          <li>Reverse demo of their Menti instance with champion</li>
+          <li>Baseline engagement metrics against CHRO priorities</li>
+        </ul>
+      </div>
+      <div class="phase a">
+        <div class="ph-label c-amber">Phase 3 · M4–6 · Workshop + Readback</div>
+        <ul class="b ba">
+          <li>Half-day in-person workshop (preferred) or virtual whiteboard</li>
+          <li>Full gap analysis: where Mentimeter is underdelivering</li>
+          <li>1 week to build Readback: hear → align → recommend → ROI</li>
+        </ul>
+      </div>
+      <div class="phase a">
+        <div class="ph-label c-green">Phase 4 · M6–9 · Pilot → Renewal</div>
+        <ul class="b bg">
+          <li>AI Menti Builder + Response Grouping: 6-month pilot (pro-rated, no commitment)</li>
+          <li>Strategic services aligned to ensure pilot ROI</li>
+          <li>Renewal event: multi-year + pricing NDA + featured customer</li>
+        </ul>
+      </div>
+    </div>
+
+    <div>
+      <div class="colhead c-teal a">125% NRR Target</div>
+      <div class="card nrr-hero a">
+        <div class="nrr-row">
+          <div class="nrr-cell"><div class="v c-mid"><span class="num" data-target="225000" data-prefix="$" data-dur="1100">$225,000</span></div><div class="l">CURRENT · 100% NRR · 150 SEATS</div></div>
+          <div class="nrr-arrow">→</div>
+          <div class="nrr-cell"><div class="v c-green"><span class="num" data-target="281250" data-prefix="$" data-dur="1400">$281,250</span></div><div class="l">TARGET · 125% NRR · 180+ SEATS</div></div>
+        </div>
+      </div>
+      <div class="kicker c-teal a" style="margin:13px 0 3px">Expansion Breakdown</div>
+      <div class="a">
+        <div class="exp-row"><span class="lab">+30 seats (150→180)</span><div class="bar"><i data-w="80%" style="background:var(--teal)"></i></div><span class="val c-teal"><span class="num" data-target="45000" data-prefix="+$" data-dur="900">+$45,000</span></span></div>
+        <div class="exp-row"><span class="lab">AI Features Package</span><div class="bar"><i data-w="15%" style="background:var(--pink)"></i></div><span class="val c-pink"><span class="num" data-target="8000" data-prefix="+$" data-dur="700">+$8,000</span></span></div>
+        <div class="exp-row"><span class="lab">Workspace Insights+</span><div class="bar"><i data-w="7%" style="background:var(--pink)"></i></div><span class="val c-pink"><span class="num" data-target="3250" data-prefix="+$" data-dur="650">+$3,250</span></span></div>
+        <div class="exp-row exp-total"><span class="lab">TOTAL EXPANSION</span><div class="bar"><i data-w="100%" style="background:var(--green)"></i></div><span class="val c-green"><span class="num" data-target="56250" data-prefix="+$" data-dur="1100">+$56,250</span></span></div>
+      </div>
+      <div class="kicker c-teal a" style="margin:14px 0 4px">Key KPIs</div>
+      <div class="a">
+        <div class="kpi"><span class="k">Seat utilization</span><span class="v"><em>73%</em> → <b>95%</b></span></div>
+        <div class="kpi"><span class="k">EBR delivered</span><span class="v"><em>0</em> → <b>1 by M4</b></span></div>
+        <div class="kpi"><span class="k">AI pilot launched</span><span class="v"><em>—</em> → <b>M6</b></span></div>
+        <div class="kpi"><span class="k">Multi-year signed</span><span class="v"><em>—</em> → <b>M9</b></span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="riskstrip a">
+    <div class="kicker c-pink">Key Risks + Mitigation</div>
+    <div class="risk-grid">
+      <div class="risk"><b>Budget freeze</b><span class="arr">→</span><span>ROI case before renewal</span></div>
+      <div class="risk"><b>Champion loss</b><span class="arr">→</span><span>exec sponsor secured by M4</span></div>
+      <div class="risk"><b>Low adoption</b><span class="arr">→</span><span>CSM + use-case workshops</span></div>
+      <div class="risk"><b>Competitor entry</b><span class="arr">→</span><span>close before RFP window opens</span></div>
+    </div>
+  </div>
+</section>
+<!-- ================= SLIDE 3 — VALUE CREATION ================= -->
+<section class="slide" data-accent="pink">
+  <div class="orb p" style="width:540px;height:540px;left:-170px;top:-190px;opacity:.13"></div>
+  <div class="orb t" style="width:460px;height:460px;right:-130px;bottom:-150px;opacity:.12"></div>
+  <header class="shead a">
+    <div class="kicker c-pink">02&nbsp;&nbsp;·&nbsp;&nbsp;Growth Through Value Creation&nbsp;&nbsp;·&nbsp;&nbsp;Champions, C-Suite &amp; Stories</div>
+    <div class="rule"></div>
+  </header>
+  <div class="cols3" style="grid-template-columns:31% 1fr 33%">
+
+    <div>
+      <div class="colhead c-pink a">Two-Tier Champion Model</div>
+      <p class="intro a">A two-tier engagement model: free and unlimited builds the network — gated and exec-sponsored converts it to revenue.</p>
+      <div class="tier tier1 a">
+        <div class="tt c-teal">On-Demand Topic Sessions</div>
+        <div class="ts">Free · unlimited · self-scheduled</div>
+        <ul class="b bt">
+          <li>Single-topic: feature adoption, use case, new team onboarding</li>
+          <li>Templated + repeatable — run by CSM or SE</li>
+          <li>Builds champion network bottoms-up; signals expansion readiness</li>
+        </ul>
+      </div>
+      <div class="feeds">↓&nbsp;&nbsp;feeds&nbsp;&nbsp;↓</div>
+      <div class="tier tier2 a">
+        <div class="tt c-pink">Strategic Workshop</div>
+        <div class="ts">Gated · multi-step · exec-sponsored</div>
+        <ul class="b bp">
+          <li>Requires discovery prep + aligned executive sponsor (budget owner)</li>
+          <li>Culminates in the Readback — ROI tied to exec priorities</li>
+          <li>Scarcity is the value — pre-renewal / pre-expansion only</li>
+        </ul>
+      </div>
+      <p class="fineprint a">Volume of on-demand sessions = qualification engine that points the workshop at the right accounts.</p>
+    </div>
+
+    <div>
+      <div class="colhead c-pink a">C-Suite Engagement</div>
+      <p class="intro a">Executives don't buy products. They buy outcomes. Every C-suite interaction is framed around their agenda.</p>
+      <div class="stat3 a">
+        <div class="statcard"><span class="big"><span class="num" data-target="62" data-suffix="%" data-dur="700">62%</span></span><span class="desc">employees globally disengaged · Gallup 2024</span></div>
+        <div class="statcard"><span class="big"><span class="num" data-target="8.8" data-dec="1" data-prefix="$" data-suffix="T" data-dur="900">$8.8T</span></span><span class="desc">productivity lost to disengagement · Gallup 2024</span></div>
+        <div class="statcard"><span class="big"><span class="num" data-target="75" data-suffix="%" data-dur="700">75%</span></span><span class="desc">employees say meetings are unproductive · Menti research</span></div>
+      </div>
+      <p class="srcline a">Sources: Gallup State of the Global Workplace 2024 · Mentimeter research</p>
+      <div class="kicker c-pink a" style="margin-bottom:9px">EBR Framework</div>
+      <div class="ebr-step a"><span class="nc">1</span><span><span class="tt">Their agenda, not ours</span><div class="dd">EBR topic set by CHRO's priorities — never a product update</div></span></div>
+      <div class="ebr-step a"><span class="nc">2</span><span><span class="tt">Business context first</span><div class="dd">Open with their metrics — never open with features</div></span></div>
+      <div class="ebr-step a"><span class="nc">3</span><span><span class="tt">Menti impact mapped to KPIs</span><div class="dd">Show usage correlation to outcomes they own</div></span></div>
+      <div class="ebr-step a"><span class="nc">4</span><span><span class="tt">Forward-looking roadmap</span><div class="dd">Close with possibilities. Not a pitch.</div></span></div>
+    </div>
+
+    <div style="display:flex;flex-direction:column">
+      <div class="colhead c-pink a">Value Storytelling · The Readback</div>
+      <p class="intro a">The Readback: the moment we show we listened before we sold anything.</p>
+      <div style="flex:1">
+        <div class="rb-step a" style="border-left-color:var(--teal)"><span class="tt">WE HEARD</span><span class="dd">Validate exec priorities in their language</span></div>
+        <div class="rb-step a" style="border-left-color:var(--pink)"><span class="tt">CURRENT STATE</span><span class="dd">Usage data, adoption gaps. Honest.</span></div>
+        <div class="rb-step a" style="border-left-color:var(--teal)"><span class="tt">GAP ANALYSIS</span><span class="dd">Where Menti is underdelivering vs possible</span></div>
+        <div class="rb-step a" style="border-left-color:var(--pink)"><span class="tt">RECOMMENDATIONS</span><span class="dd">Aligned to exec priorities — not features</span></div>
+        <div class="rb-step a" style="border-left-color:var(--teal)"><span class="tt">ROI CASE</span><span class="dd">Meeting productivity, training, turnover</span></div>
+        <div class="rb-step a" style="border-left-color:var(--pink)"><span class="tt">PILOT ROADMAP</span><span class="dd">6-month pilot. Pro-rated. No obligation.</span></div>
+      </div>
+      <div class="menti-bar pulse a">
+        <div class="mtext"><b>✦ MENTI MOMENT</b>&nbsp; · &nbsp;Which of these activities drives the most value in your strategic accounts?
+          <div class="mtype">Ranking · Menti PowerPoint Add-in</div>
+        </div>
+        <div class="mini-qr"><span>[ INSERT<br>MENTI QR ]</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- ================= SLIDE 4 — TEAM ARCHITECTURE ================= -->
+<section class="slide" data-accent="amber">
+  <div class="orb t" style="width:520px;height:520px;right:-150px;top:-180px;opacity:.12"></div>
+  <div class="orb p" style="width:440px;height:440px;left:-150px;bottom:-140px;opacity:.11"></div>
+  <header class="shead a">
+    <div class="kicker c-amber">03&nbsp;&nbsp;·&nbsp;&nbsp;Build a High-Performing Strategic Accounts Team&nbsp;&nbsp;·&nbsp;&nbsp;NAMER</div>
+    <div class="rule"></div>
+  </header>
+  <div class="cols3" style="grid-template-columns:31% 1fr 34%">
+
+    <div>
+      <div class="colhead c-amber a">Team Structure</div>
+      <p class="intro a">First Strategic Accounts team in NAMER — a finite named book covered by territory, built for velocity in year 1, scale in year 2.</p>
+      <div class="org-dir a">
+        <div class="tt">DIRECTOR, STRATEGIC ACCOUNTS</div>
+        <div class="nm">Chris Roberts (You)</div>
+      </div>
+      <div class="org-line drawV" style="transition-delay:.45s"></div>
+      <div class="org-card a" data-sdplus="700" style="border-left-color:var(--teal)">
+        <div class="tt c-teal">RELATIONSHIP MANAGER</div>
+        <div class="ct">NAMER East + West · 2×</div>
+        <div class="dd">Own commercial relationships, EBRs, renewal &amp; expansion</div>
+      </div>
+      <div class="org-card a" data-sdplus="700" style="border-left-color:var(--pink)">
+        <div class="tt c-pink">CUSTOMER SUCCESS MGR</div>
+        <div class="ct">Paired to RM territory · 2×</div>
+        <div class="dd">Adoption, onboarding, usage monitoring, champion development</div>
+      </div>
+      <div class="org-card a" data-sdplus="700" style="border-left-color:var(--mid)">
+        <div class="tt c-mid">SOLUTION ENGINEER</div>
+        <div class="ct">Shared across NAMER · 1× (Yr 1)</div>
+        <div class="dd">Complex use cases, demos, integration support, pilots</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="colhead c-amber a">Operating Cadence</div>
+      <p class="intro a">Visibility and rhythm are the infrastructure of a high-performing team. Cadence removes ambiguity.</p>
+      <div class="cad a">
+        <div class="tt c-teal">DAILY</div>
+        <ul class="b bt">
+          <li>Async pipeline hygiene (CRM: stage, next step, close date)</li>
+          <li>Team Slack: wins, blockers, customer signals</li>
+        </ul>
+      </div>
+      <div class="cad a">
+        <div class="tt c-pink">WEEKLY</div>
+        <ul class="b bp">
+          <li>1:1 coaching (RM + CSM paired) · 30 min, structured</li>
+          <li>Pipeline review: moving, stuck, at risk</li>
+          <li>Win/loss debrief</li>
+        </ul>
+      </div>
+      <div class="cad a">
+        <div class="tt c-amber">MONTHLY</div>
+        <ul class="b ba">
+          <li>Team performance dashboard: NRR, pipeline, utilization</li>
+          <li>Customer health score review</li>
+          <li>Product sync: new features, how to position</li>
+        </ul>
+      </div>
+      <div class="cad a">
+        <div class="tt" style="color:var(--white)">QUARTERLY</div>
+        <ul class="b">
+          <li>Team retrospective</li>
+          <li>IDP check-in</li>
+          <li>EBR delivery review</li>
+        </ul>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column">
+      <div class="colhead c-amber a">Coaching &amp; Success</div>
+      <p class="intro a" style="margin-bottom:8px">A team performs like its coaching.</p>
+      <table class="sbi a">
+        <tr><td>SITUATION</td><td>Name the specific context — never generalise</td></tr>
+        <tr><td>BEHAVIOR</td><td>Observable actions — not interpretations</td></tr>
+        <tr><td>IMPACT</td><td>Business outcomes and team dynamic</td></tr>
+        <tr><td>NEXT</td><td>30-day plan, weekly check-ins, support</td></tr>
+      </table>
+      <p class="fineprint a" style="margin:0 0 10px">Accountability ≠ blame. Support runs parallel.</p>
+      <div class="kicker c-amber a" style="margin-bottom:6px">Career Development</div>
+      <ul class="b ba dev a" style="margin-bottom:10px">
+        <li>IDPs tied to business outcomes — not competency frameworks</li>
+        <li>Progression: CSM → Sr CSM → RM, milestone-based</li>
+        <li>Menti product certification for all team members</li>
+      </ul>
+      <div class="kicker c-amber a" style="margin-bottom:6px">What Success Looks Like</div>
+      <div style="flex:1">
+        <div class="win a"><span class="ic c-amber">◈</span><span><b>Team:</b> 125% collective NRR in year 1</span></div>
+        <div class="win a"><span class="ic c-amber">◈</span><span><b>Commercial:</b> 3+ multi-year renewals signed</span></div>
+        <div class="win a"><span class="ic c-green">◈</span><span><b>Culture:</b> eNPS &gt;70 · team stays · AI adopted</span></div>
+      </div>
+      <div class="menti-bar pulse a">
+        <div class="mtext"><b>✦ MENTI CLOSE</b>&nbsp; · &nbsp;What's the one question you'd most want me to explore in my first 30 days?
+          <div class="mtype">Open Ended · Menti PowerPoint Add-in</div>
+        </div>
+        <div class="mini-qr"><span>[ INSERT<br>MENTI QR ]</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- ================= SLIDE 5 — APPENDIX: ROI CALCULATOR ================= -->
+<section class="slide" data-accent="green">
+  <div class="orb t" style="width:540px;height:540px;left:-170px;top:-170px;opacity:.12"></div>
+  <div class="orb p" style="width:460px;height:460px;right:-140px;bottom:-150px;opacity:.11"></div>
+  <div class="s5-badge a">Beyond the brief</div>
+  <header class="shead a">
+    <div class="kicker c-green">Appendix&nbsp;&nbsp;·&nbsp;&nbsp;The Mentimeter Enterprise Value Model</div>
+    <div class="rule"></div>
+  </header>
+  <p class="intro a" style="max-width:1180px;margin-bottom:16px">One model. Four levers. Named inputs. Benchmarks stay constant (conservative, published). Account variables pulled per customer — same calculator runs against any enterprise account. Attribution shown as a range anchored at 20%.</p>
+  <div class="s5-grid">
+
+    <div>
+      <div class="colhead c-green a">The Formula</div>
+      <div class="lever a">
+        <span class="nc c-teal">1</span>
+        <span><span class="tt c-teal">MEETING PRODUCTIVITY</span>
+        <div class="fm">Managers × sessions/wk × prep-hrs saved × loaded rate × 50 wks</div>
+        <div class="bm">Benchmark: 40% prep-time reduction = 45 min/session · $95/hr</div></span>
+      </div>
+      <div class="lever a">
+        <span class="nc c-pink">2</span>
+        <span><span class="tt c-pink">TRAINING EFFECTIVENESS</span>
+        <div class="fm">L&amp;D sessions/yr × retention uplift % × cost-per-retrain avoided</div>
+        <div class="bm">Benchmark: 60% knowledge-retention uplift, interactive vs passive</div></span>
+      </div>
+      <div class="lever a">
+        <span class="nc c-amber">3</span>
+        <span><span class="tt c-amber">DECISION VELOCITY</span>
+        <div class="fm">Strategic decisions/yr × misalignment cost × % reduction</div>
+        <div class="bm">Benchmark: McKinsey — poor decisions cost Fortune 500 ~€225m/yr</div></span>
+      </div>
+      <div class="lever a">
+        <span class="nc c-green">4</span>
+        <span><span class="tt c-green">RETENTION &amp; ENGAGEMENT</span>
+        <div class="fm">Headcount × turnover % × engagement-driven reduction × replace cost</div>
+        <div class="bm">Benchmark: Gallup — 18% productivity / 21% profitability gap</div></span>
+      </div>
+    </div>
+
+    <div>
+      <div class="colhead c-green a">Worked Example · NorthStar Financial</div>
+      <div class="inputs a"><b>8,000</b> employees · <b>150</b> managers · <b>200</b> L&amp;D sessions/yr · <b>13%</b> turnover · <b>$45k</b> replacement · <b>$95/hr</b></div>
+      <div class="calc a">
+        <div class="row1"><span class="lab">1 · Meeting productivity<span class="frm">150 × 4 × 0.75h × $95 × 50</span></span><span class="val c-teal"><span class="num" data-target="2137500" data-prefix="$" data-dur="1400">$2,137,500</span></span></div>
+        <div class="bar"><i data-w="100%" style="background:var(--teal)"></i></div>
+      </div>
+      <div class="calc a">
+        <div class="row1"><span class="lab">2 · Training effectiveness<span class="frm">200 sessions × retention uplift</span></span><span class="val c-pink"><span class="num" data-target="180000" data-prefix="$" data-dur="800">$180,000</span></span></div>
+        <div class="bar"><i data-w="9%" style="background:var(--pink)"></i></div>
+      </div>
+      <div class="calc a">
+        <div class="row1"><span class="lab">3 · Decision velocity<span class="frm">&lt;0.4% of McKinsey figure</span></span><span class="val c-amber"><span class="num" data-target="850000" data-prefix="$" data-dur="1100">$850,000</span></span></div>
+        <div class="bar"><i data-w="40%" style="background:var(--amber)"></i></div>
+      </div>
+      <div class="calc a">
+        <div class="row1"><span class="lab">4 · Retention &amp; engagement<span class="frm">8,000 × 13% × 2% × $45k</span></span><span class="val c-green"><span class="num" data-target="936000" data-prefix="$" data-dur="1100">$936,000</span></span></div>
+        <div class="bar"><i data-w="44%" style="background:var(--green)"></i></div>
+      </div>
+      <div class="gross a">
+        <span class="lab">GROSS MODELLED VALUE</span>
+        <span class="val"><span class="num" data-target="4103500" data-prefix="$" data-dur="1400">$4,103,500</span></span>
+      </div>
+      <div class="roi-hero a">
+        <div class="roi-kick">At 20% attribution · <span class="num" data-target="820700" data-prefix="$" data-dur="1000">$820,700</span> vs $225k spend</div>
+        <div class="roi-big"><span class="num" data-target="3.6" data-start="1.0" data-dec="1" data-suffix="×" data-dur="2400" data-ease="quint" data-wait="900" data-land="1">3.6×</span> <span style="font-size:30px;font-weight:800;vertical-align:18px">ROI</span></div>
+        <div class="roi-floor">Floor: 2.7× at 15% attribution</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="agent-strip a">
+    <span class="tag">⚙ AGENT-READY</span>
+    <div class="agent-flow">
+      <span><b>PULL</b> account data</span><span class="fa">→</span>
+      <span><b>APPLY</b> fixed benchmarks</span><span class="fa">→</span>
+      <span><b>CALCULATE</b> 4-lever model</span><span class="fa">→</span>
+      <span><b>OUTPUT</b> EBR-ready ROI one-pager</span>
+    </div>
+  </div>
+</section>
+
+<!-- ================= SLIDE 6 — CLOSE ================= -->
+<section class="slide" data-accent="teal">
+  <div class="orb t" style="width:600px;height:600px;left:50%;top:-260px;margin-left:-300px;opacity:.15"></div>
+  <div class="orb p" style="width:480px;height:480px;right:-150px;bottom:-170px;opacity:.12"></div>
+  <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center">
+    <div class="kicker c-teal a" style="letter-spacing:.34em;margin-bottom:30px">Chris Roberts &nbsp;·&nbsp; Director, Strategic Accounts &nbsp;·&nbsp; NAMER</div>
+    <div class="a" style="font-size:96px;font-weight:800;line-height:1;letter-spacing:-.02em">Tack<span class="c-teal">.</span></div>
+    <p class="a" style="font-size:17px;color:var(--mid);margin-top:20px">Thank you, Richard &amp; Tobias — over to your questions.</p>
+    <div class="s1-divider draw" style="margin:32px auto 30px"></div>
+    <div class="a" style="display:flex;gap:12px">
+      <div class="card s1-card" style="padding:11px 18px"><span class="n">01</span><span class="t">Account Plan</span><span class="arr">→</span><span class="o c-teal">125% NRR</span></div>
+      <div class="card s1-card" style="padding:11px 18px"><span class="n">02</span><span class="t">Value Creation</span><span class="arr">→</span><span class="o c-pink">Champions</span></div>
+      <div class="card s1-card" style="padding:11px 18px"><span class="n">03</span><span class="t">Team Architecture</span><span class="arr">→</span><span class="o c-amber">Scale</span></div>
+    </div>
+    <p class="a" style="margin-top:34px;font-size:14px;color:var(--mid);letter-spacing:.04em">chris.h.roberts@outlook.com&nbsp;&nbsp;·&nbsp;&nbsp;Toronto, ON&nbsp;&nbsp;·&nbsp;&nbsp;Portfolio: chris-roberts-ai.vercel.app</p>
+    <p class="a" style="margin-top:14px;font-size:15px;color:var(--mid);font-style:italic">Built as a browser-native interactive presentation — because a conversation beats a slideshow.</p>
+  </div>
+</section>
+
+</div></div>
+
+<div id="hudCounter">1 / 6</div>
+<div id="hudNav">
+  <button id="prevBtn" aria-label="Previous slide">‹</button>
+  <button id="nextBtn" aria-label="Next slide">›</button>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var stage = document.getElementById('stage');
+  var progress = document.getElementById('progress');
+  var accentBar = document.getElementById('accentBar');
+  var counter = document.getElementById('hudCounter');
+  var nav = document.getElementById('hudNav');
+  var prevBtn = document.getElementById('prevBtn');
+  var nextBtn = document.getElementById('nextBtn');
+  var ACCENTS = {teal:'#00C4DC', pink:'#FF3E82', amber:'#E07B39', green:'#22C55E'};
+  var cur = -1;
+  var timers = [];
+
+  /* ---------- fit 1600×900 stage to viewport (16:9, no clipping) ---------- */
+  function fit(){
+    var sc = Math.min(window.innerWidth/1600, window.innerHeight/900);
+    stage.style.transform = 'scale(' + sc + ')';
+  }
+  window.addEventListener('resize', fit);
+  fit();
+
+  /* ---------- stagger: assign entry delays per slide (80ms apart) ---------- */
+  slides.forEach(function(s){
+    var els = s.querySelectorAll('.a');
+    for (var k = 0; k < els.length; k++){
+      var d = k * 80 + (parseFloat(els[k].dataset.sdplus) || 0);
+      els[k].style.transitionDelay = d + 'ms';
+      els[k].dataset.sd = d;
+    }
+  });
+
+  /* ---------- number formatting + count-up ---------- */
+  function fmt(v, dec){
+    if (dec > 0) return v.toFixed(dec);
+    return Math.round(v).toLocaleString('en-US');
+  }
+  function easeOutCubic(x){ return 1 - Math.pow(1 - x, 3); }
+  function easeOutQuint(x){ return 1 - Math.pow(1 - x, 5); }
+
+  function setNumStart(el){
+    var start = parseFloat(el.dataset.start || 0);
+    var dec = parseInt(el.dataset.dec || 0, 10);
+    el.textContent = (el.dataset.prefix || '') + fmt(start, dec) + (el.dataset.suffix || '');
+  }
+  function animateNum(el){
+    var target = parseFloat(el.dataset.target);
+    var start = parseFloat(el.dataset.start || 0);
+    var dec = parseInt(el.dataset.dec || 0, 10);
+    var dur = parseFloat(el.dataset.dur || (target >= 100000 ? 1400 : target >= 1000 ? 1000 : 600));
+    var pre = el.dataset.prefix || '', suf = el.dataset.suffix || '';
+    var ease = el.dataset.ease === 'quint' ? easeOutQuint : easeOutCubic;
+    var t0 = performance.now();
+    function frame(now){
+      var p = Math.min(1, (now - t0) / dur);
+      el.textContent = pre + fmt(start + (target - start) * ease(p), dec) + suf;
+      if (p < 1){ requestAnimationFrame(frame); }
+      else if (el.dataset.land){
+        var hero = el.closest ? el.closest('.roi-hero') : null;
+        if (hero) hero.classList.add('landed');
+      }
+    }
+    requestAnimationFrame(frame);
+  }
+
+  /* ---------- reset dynamic elements before a slide enters ---------- */
+  function resetSlide(s){
+    s.querySelectorAll('.num').forEach(setNumStart);
+    s.querySelectorAll('.bar i').forEach(function(b){
+      b.style.transition = 'none';
+      b.style.width = '0';
+    });
+    s.querySelectorAll('.roi-hero').forEach(function(h){ h.classList.remove('landed'); });
+  }
+
+  /* ---------- run per-slide animations on entry ---------- */
+  function runAnims(s){
+    /* count-ups: fire after their container's stagger delay */
+    s.querySelectorAll('.num').forEach(function(el){
+      var anc = el.closest('.a');
+      var d = anc ? parseFloat(anc.dataset.sd || 0) : 0;
+      var extra = parseFloat(el.dataset.wait || 0);
+      timers.push(setTimeout(function(){ animateNum(el); }, d + 250 + extra));
+    });
+    /* bars: draw left-to-right, sequential — never simultaneous */
+    var bars = s.querySelectorAll('.bar i');
+    bars.forEach(function(b, idx){
+      var anc = b.closest('.a');
+      var d = anc ? parseFloat(anc.dataset.sd || 0) : 0;
+      timers.push(setTimeout(function(){
+        b.style.transition = 'width .8s ease-out';
+        b.style.width = b.dataset.w || '100%';
+      }, d + 350 + idx * 260));
+    });
+    /* once entrances finish, switch to snappy hover physics */
+    timers.push(setTimeout(function(){ s.classList.add('settled'); }, 2600));
+  }
+
+  /* ---------- slide switching ---------- */
+  function show(i){
+    i = Math.max(0, Math.min(slides.length - 1, i));
+    if (i === cur) return;
+    timers.forEach(clearTimeout); timers = [];
+    var prev = cur >= 0 ? slides[cur] : null;
+    var s = slides[i];
+    cur = i;
+
+    if (prev){ prev.classList.remove('active', 'in'); }
+
+    /* reset incoming slide silently */
+    s.classList.add('noanim');
+    s.classList.remove('in', 'settled');
+    resetSlide(s);
+    void s.offsetHeight; /* force reflow */
+    s.classList.remove('noanim');
+
+    /* crossfade in + run entrances */
+    requestAnimationFrame(function(){
+      s.classList.add('active');
+      requestAnimationFrame(function(){
+        s.classList.add('in');
+        runAnims(s);
+      });
+    });
+
+    /* chrome */
+    accentBar.style.background = ACCENTS[s.dataset.accent] || ACCENTS.teal;
+    progress.style.width = ((i + 1) / slides.length * 100) + '%';
+    counter.textContent = (i + 1) + ' / ' + slides.length;
+    prevBtn.disabled = (i === 0);
+    nextBtn.disabled = (i === slides.length - 1);
+  }
+
+  /* ---------- navigation ---------- */
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' '){ e.preventDefault(); show(cur + 1); }
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp'){ e.preventDefault(); show(cur - 1); }
+    else if (e.key === 'Home'){ show(0); }
+    else if (e.key === 'End'){ show(slides.length - 1); }
+  });
+  prevBtn.addEventListener('click', function(){ show(cur - 1); });
+  nextBtn.addEventListener('click', function(){ show(cur + 1); });
+
+  /* chevrons fade in on mouse movement, out after 2s idle */
+  var navTimer = null;
+  function wake(){
+    nav.classList.add('visible');
+    if (navTimer) clearTimeout(navTimer);
+    navTimer = setTimeout(function(){ nav.classList.remove('visible'); }, 2000);
+  }
+  document.addEventListener('mousemove', wake);
+  nav.addEventListener('mouseenter', function(){
+    if (navTimer) clearTimeout(navTimer);
+    nav.classList.add('visible');
+  });
+
+  show(0);
+})();
+</script>
+</body>
+</html>
